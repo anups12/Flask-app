@@ -1,0 +1,13 @@
+2025-03-12 17:09:13 - INFO - Broker logged in successfully
+2025-03-12 17:09:13 - INFO - Error starting telegram bot: {telegram_error_message}
+2025-03-12 17:09:13 - INFO - Retrieved data from the config file. Starting bot with the following parameters:
+2025-03-12 17:09:13 - INFO - ------------------------------------------------------------------------------------
+2025-03-12 17:09:13 - INFO - START TIME: 09:15, INDEX: Nifty Bank, TIMEFRAME: 1, LOTS: 6 
+2025-03-12 17:09:13 - INFO - NUMBER OF STRIKES: 9, BAND: 100, MAX TRADES: 4
+2025-03-12 17:09:13 - INFO - ----------------------------------------------------------------------------------------
+2025-03-12 17:09:13 - INFO - Bot started at 17:09:13.126636
+2025-03-12 17:09:13 - INFO - delete me Nifty Bank
+2025-03-12 17:09:13 - INFO - reached here index NSE:Nifty Bank
+2025-03-12 17:09:13 - INFO - reached here url http://127.0.0.1:5001/ltp?instrument=NSE:Nifty Bank
+2025-03-12 17:09:13 - INFO - request  {'status_code': 200, 'text': 77}
+2025-03-12 17:09:13 - INFO - 'dict' object has no attribute 'status_code'

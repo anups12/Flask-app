@@ -1,0 +1,48 @@
+
+#BOT Parameters
+algo_start_time: '09:15'            # Start of Bot
+algo_end_time: '23:29'              # Square off all open positions and stop the Bot
+last_entry: '15:25:00'              # Last entry time
+trade_nifty: 0                      # Trade Flag 0 -> Disabled 1-> enabled 
+trade_bnf: 1                        # Trade Flag 0 -> Disabled 1-> enabled
+trade_fin: 0                        # Trade Flag 0 -> Disabled 1-> enabled
+band: 100                           # Band 50 or 100 for NIFTY and Band 100 for BANKNIFTY and FINNIFTY
+time_frame: 1                       # Time frame in minutes for candle aggregation (e.g., 5 for 5-minute candles)
+number_of_trade_strike_prices: 9    # Number of strike prices above and below the current price
+lots: 6                             # Number of lots to trade
+max_trades: 4                       # Max number of SL hit trades
+paper_trading: 1                    # Paper trading flag (1) to enable paper trading
+target_percentage: 30               # Target Percentage
+sl_percentage: 0.80                 # SL Percentage
+websocket_timeout: 2                # Timeout for websocket data
+total_points: 0                     # Initialize total points
+EMA_LENGTH: 20                      # Ema length to calculate EMA
+HISTORICAL_DATA_BACK_DAYS: 1        # No of days data requested from websocket
+
+#TELEGRAM API DETAILS
+telegram_key: "655XXXXYYYYZZZZZ"        #TELEGRAM KEY
+chat_id: ABCDEFGH                                           #TELEGRAM CHAT ID
+
+
+#EXPIRY SELECTION. 0 => CURRENT  1 => NEXT
+expiry: 0                           # NEED TO BE SELECTED BEFORE WEBSOCKET STARTS (9:10)
+
+# 0 --> NO Data feed; 1 --> Data Feed
+Flag_Nifty: 1
+Flag_Banknifty: 1
+Flag_Finnifty: 1
+
+#WEB-SERVER PASSCODE
+Flask_passcode: "testpassword444"
+
+#WEBSOCKET STRIKE SELECTION -RANGE OF STRIKES FOR DATA FEED 
+Num_of_websocket_strikes: 15
+
+# 0 --> NO Data Feed; 1 --> Need Data Feed
+Band_Nifty: 50
+Band_Banknifty: 100
+Band_Finnifty: 100
+
+
+#INDIAN MARKET START TIME, FOR CANDLE CREATION
+market_start_time: '09:15'  #DO NOT CHANGE
