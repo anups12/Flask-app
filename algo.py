@@ -18,6 +18,9 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 total_points_file_name = "total_points.txt"
 total_points_file_path = os.path.join(current_directory,total_points_file_name)
 
+
+historical_data_dict = {}
+
 def write_total_points_to_file(number):
     global total_points_file_path
     with open(total_points_file_path, 'w') as file:
@@ -133,25 +136,18 @@ def get_current_price(index_name, flask_base_url,type,token=None,flask_timeout=2
         'Nifty Bank': '26009',
         'Nifty Fin Service': '26037'
     }
-    logger.info(f"delete me {index_name}")
     if type == "index":
         instrument = index_map.get(index_name)
     else :
         instrument = index_name
-    logger.info(f"reached here index {instrument}")
 
     url = f"{flask_base_url}/ltp?instrument={instrument}"
     hist_flag = 0
-    logger.info(f"reached here url {url}")
+
     try:
         # Adding a timeout of 2 seconds
-        # response = requests.get(url, timeout=(flask_timeout, flask_timeout))
-        import random
-        response = {
-            "status_code":200, 
-            "text": random.randint(10, 100)
-        }
-        logger.info(f"request  {response}")
+        response = requests.get(url, timeout=(flask_timeout, flask_timeout))
+        
         hist_flag = 1
     except requests.exceptions.Timeout:
         pass
@@ -160,7 +156,6 @@ def get_current_price(index_name, flask_base_url,type,token=None,flask_timeout=2
         pass
         print(f"An error occurred: {e}")
     else:
-        print("response ", response)
         if response.status_code == 200:
             price = float(response.text)
             if isinstance(price,float) and price is not None:
@@ -254,12 +249,12 @@ def get_contracts(index_price, symbol, n, band, atm_band):
 
 #Fetches 1 MINUTE candle data, for contracts, first through websocket, if that fails, then through historical API
 def check_and_fetch_missing_candles(contracts_df, time_frame, flask_base_url, market_start_time,algo_start_time,flask_timeout=2):
-    hist_flag = 0
     aggregated_candles = {}
     # Get the current time in IST
     num_required_candles = int(time_frame)*2
     india_tz = pytz.timezone('Asia/Kolkata')
     current_time = datetime.now(india_tz)
+    save_hist_data = False
 
     # Calculate the time for the last time_frame*2 candles based on the current time
     last_expected_candle_time = current_time.replace(second=0, microsecond=0) - timedelta(minutes=1)
@@ -279,7 +274,6 @@ def check_and_fetch_missing_candles(contracts_df, time_frame, flask_base_url, ma
             pass
         else:
           if response.status_code == 200:
-            hist_flag = 1
             candles = response.json()
             if candles: # and instrument_key != "NFO:BANKNIFTY09OCT24P52900":
                 # Convert the list of candles to a DataFrame
@@ -289,6 +283,7 @@ def check_and_fetch_missing_candles(contracts_df, time_frame, flask_base_url, ma
                 numeric_cols = ['open', 'high', 'low', 'close', 'volume']
                 for col in numeric_cols:
                     candles_df[col] = pd.to_numeric(candles_df[col], errors='coerce')
+                
                 # Ensure we have the last num_required_candles (e.g., 9)
                 if len(candles_df) >= num_required_candles:
                     # Get the last num_required_candles (e.g., 9) candles
@@ -296,18 +291,16 @@ def check_and_fetch_missing_candles(contracts_df, time_frame, flask_base_url, ma
 
                     # Calculate the expected candle times for the last num_required_candles (e.g., 9) minutes
                     expected_times = [last_expected_candle_time - timedelta(minutes=i) for i in range(num_required_candles)][::-1]
-                    expected_times_str = [dt.strftime('%Y-%m-%d %H:%M') for dt in expected_times]
                     #print(expected_times_str)
                     # Compare the actual times of the last candles with the expected times
                     actual_times = last_candles_df['time'].tolist()
-                    actual_times_str = [dt.strftime('%Y-%m-%d %H:%M') for dt in actual_times]
                     #print(actual_times_str)
                     #actual_times_as_datetime = [ts.to_pydatetime() for ts in actual_times]
                     #print(actual_times_as_datetime)
                     #print(candles_df)
                     #print(candles_df.dtypes)
                     if actual_times == expected_times :
-                        aggregated_candles[instrument_key] = aggregate_candles(candles_df,time_frame,market_start_time,algo_start_time, instrument_key)
+                        aggregated_candles[instrument_key] = aggregate_candles(candles_df,time_frame,market_start_time,algo_start_time, instrument_key, token)
                         print(f"All required candles are present for {instrument_key}.")
                         continue  # Continue to the next instrument if candles are correct
                     else:
@@ -319,38 +312,49 @@ def check_and_fetch_missing_candles(contracts_df, time_frame, flask_base_url, ma
                     print(f"Not enough candles for {instrument_key}. Expected {num_required_candles}, but got {len(candles_df)}.")
             else:
                 logger.info(f"No candle data for {instrument_key}.")
-                try:
-                    logger.info(f"Error candle data: {candles}.")
-                except Exception as e:
-                    logger.info(f"Error: {e}")
-                print(f"No candle data for {instrument_key}.")
+                save_hist_data = True
+               
           else:
             logger.info(f"Failed to fetch candle data for {instrument_key} from Flask endpoint. Status code: {response.status_code}")
             print(f"Failed to fetch candle data for {instrument_key} from Flask endpoint. Status code: {response.status_code}")
+            save_hist_data = True
 
         # If candles are missing or incorrect, fetch historical data
-        historical_df = fetch_historical_data(token)
+        historical_df = fetch_historical_data(token, save_hist_data=save_hist_data)
         if historical_df is not None:
             # Update the aggregated candles
             print(1)
-            aggregated_candles[instrument_key] = aggregate_candles(historical_df,time_frame,market_start_time,algo_start_time, instrument_key)
+            aggregated_candles[instrument_key] = aggregate_candles(historical_df,time_frame,market_start_time,algo_start_time, instrument_key,token, current_day=True)
             print(aggregated_candles[instrument_key])
-            print(2)
         else:
             print("No data for today")
     return aggregated_candles
 
 #Aggregates the 1 MINUTE candle data, to the specified time frame candles
-def aggregate_candles(df,time_frame,market_start_time,algo_start_time, instument_key):
+def aggregate_candles(df,time_frame,market_start_time,algo_start_time, instument_key, token, current_day=False):
     #print(df)
-    df['time'] = pd.to_datetime(df['time'])
-    df.set_index('time', inplace=True)
+    if df['time'].dt.tz is None:
+        df['time'] = df['time'].dt.tz_localize('Asia/Kolkata')
+    else:
+        df['time'] = df['time'].dt.tz_convert('Asia/Kolkata')
+    df = df.reset_index()  # Reset index to make 'time' a column
+
+    if len(df) < 375:
+        data = historical_data_dict.get(token)
+
+        if data is not None and not data.empty:  # Ensure data is not empty
+            data = data.reset_index()  # Reset index to ensure 'time' is a colum
+            df = pd.concat([data, df], ignore_index=True).drop_duplicates(subset=['time'], keep='last')
+
+    # Convert & set index only once
+    df.set_index('time', inplace=True, drop=True)
+
     # Align resampling with the given start_time (e.g., 9:15)
     start_datetime = df.index.min()  # First timestamp in the data
     aligned_start_time = start_datetime.replace(hour=market_start_time.hour, minute=market_start_time.minute, second=0, microsecond=0)
     backdate_days = config.get("HISTORICAL_DATA_BACK_DAYS")
     aligned_start_time = aligned_start_time - timedelta(days=backdate_days)
-
+   
     # Ensure aligned_start_time is not earlier than the first data point
     while aligned_start_time < start_datetime:
         aligned_start_time += timedelta(minutes=time_frame)
@@ -381,8 +385,6 @@ def aggregate_candles(df,time_frame,market_start_time,algo_start_time, instument
     last_2_candles = resampled_df.tail(2)
 
 
-    print(f"Calculate ema data {instument_key} /n", last_2_candles)
-    logger.info(f"Calculate ema data {instument_key} /n {last_2_candles}" )
     #print(last_2_candles)
     algo_start_datetime = last_2_candles['time'].iloc[0].replace(
         hour=algo_start_time.hour, 
@@ -400,7 +402,7 @@ def aggregate_candles(df,time_frame,market_start_time,algo_start_time, instument
        return pd.DataFrame()
 
 #Fetch historical candle data.
-def fetch_historical_data(instrument):
+def fetch_historical_data(instrument, save_hist_data=False):
     time.sleep(0.2)
     global api
     return_df = []
@@ -409,25 +411,23 @@ def fetch_historical_data(instrument):
     
     # Set market open time to 9:15 AM
     market_open = current_time.replace(hour=9, minute=15, second=0, microsecond=0)
-    backdate_days = config.get("HISTORICAL_DATA_BACK_DAYS")
+    if save_hist_data:
+        backdate_days = config.get("HISTORICAL_DATA_BACK_DAYS")
 
-    market_open -= timedelta(days=backdate_days)
+        market_open -= timedelta(days=backdate_days)
 
     market_open = market_open.timestamp()
 
-    
     print(f"Fetching historical data for token {instrument}")
     logger.info(f"Fetching historical data for token {instrument}")
     #print(api)
     #candles = api.get_time_price_series(exchange='NFO', token="47262",
      #             starttime=market_open, interval=int(time_frame))
-    
+
     candles = api.get_time_price_series(exchange='NFO', token=str(instrument),
                   starttime=float(market_open), interval=1)
     #print(type(instrument),instrument,market_open,type(market_open))
     try:
-        dataframe = pd.DataFrame(candles)
-        print(dataframe)
         if candles:
             candles.reverse()
             for response in candles:
@@ -442,8 +442,11 @@ def fetch_historical_data(instrument):
                 #print(data)
                 return_df.append(data)
             df = pd.DataFrame(return_df)
-            df['time'] = pd.to_datetime(df['time'])
+            df['time'] = pd.to_datetime(df['time'], dayfirst=True)
             df['time'] = df['time'].dt.tz_localize('Asia/Kolkata')
+
+            if save_hist_data:
+                historical_data_dict[instrument] = df
             return df
         else:
             print(f"1Retrying candle data from historical api, received data : {candles} ")
@@ -530,7 +533,6 @@ def execute_trade(data,paper_trading):
     if data['status'] == "pending":
         t_type = "BUY"
     elif data['status'] == "open":
-        logger.info(f"Contract: {data['contract']}, Entry: {data['entry_price']}, 'sl': {data['sl']}, 'target': {data['target']}, 'Total previous trades': {data.get('trades_count',0)} ")
         t_type = "SELL"
     else:
         return 1
